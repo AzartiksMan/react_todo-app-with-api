@@ -1,17 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as todosApi from './api/todos';
-
 import { FilterParams } from './types/FilterParams';
 
 import { UserWarning } from './UserWarning';
 import { Todo } from './types/Todo';
 import { AppHeader } from './components/AppHeader';
-import { TodoList } from './components/TodoList';
 import { AppFooter } from './components/AppFooter';
 import { ErrorNotification } from './components/ErrorNotification';
 import { ErrorMessages } from './types/ErrorMessages';
+import { TodoItem } from './components/TodoItem';
 
-// чи виносить мені цю функцію у компонент AppFooter? (там де фильтрация)
+// винести в фанк файл
 const prepareTodoList = (todoData: Todo[], filter: FilterParams): Todo[] => {
   return todoData.filter(todo => {
     switch (filter) {
@@ -27,9 +26,9 @@ const prepareTodoList = (todoData: Todo[], filter: FilterParams): Todo[] => {
 
 export const App: React.FC = () => {
   const [todoData, setTodoData] = useState<Todo[]>([]);
+  const [tempTodo, setTempTodo] = useState<Todo | null>(null);
 
   const [todoTitle, setTodoTitle] = useState('');
-  const [tempTodo, setTempTodo] = useState<Todo | null>(null);
 
   const [errorMessage, setErrorMessage] = useState(ErrorMessages.None);
 
@@ -41,20 +40,22 @@ export const App: React.FC = () => {
 
   const [operatedTodo, setOperatedTodo] = useState<number[]>([]);
 
+  const [isTodoSaving, setTodoSaving] = useState<null | number>(null);
+
+  const [editingTodoId, setEditingTodoId] = useState<null | number>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // може обгорунть ці три змінні одним юз мемо? типу "const { activeTodos, isCompletedTodos, isAllTodosCompleted } = useMemo(() => {})"
+  const { activeTodos, isCompletedTodos, isAllTodosCompleted } = useMemo(() => {
+    const active = todoData.filter(todo => !todo.completed).length;
+    const completedExists = todoData.some(todo => todo.completed);
+    const allCompleted =
+      todoData.length > 0 && todoData.every(todo => todo.completed);
 
-  const activeTodos = useMemo(() => {
-    return todoData.filter(todo => !todo.completed).length;
-  }, [todoData]);
-
-  const isCompletedTodos = useMemo(() => {
-    return todoData.some(todo => todo.completed);
-  }, [todoData]);
-
-  const isAllTodosCompleted = useMemo(() => {
-    return todoData.length > 0 && todoData.every(todo => todo.completed);
+    return {
+      activeTodos: active,
+      isCompletedTodos: completedExists,
+      isAllTodosCompleted: allCompleted,
+    };
   }, [todoData]);
 
   useEffect(() => {
@@ -64,7 +65,6 @@ export const App: React.FC = () => {
       .catch(() => setErrorMessage(ErrorMessages.OnGet));
   }, []);
 
-  // Мастер, скажи чи виносить цей хендлер в компонент AppHeader (він спрацьовує на сабмит) чи залишати в App?
   const handleSubmit = (title: string) => {
     if (!title) {
       setErrorMessage(ErrorMessages.OnEmptyTitle);
@@ -98,7 +98,21 @@ export const App: React.FC = () => {
       });
   };
 
-  // а это в компонент AppFooter ?
+  const handleDelete = (id: number) => {
+    setDeletedTodo(cur => [...cur, id]);
+
+    todosApi
+      .deleteTodo(id)
+      .then(() => setTodoData(cur => cur.filter(todo => todo.id !== id)))
+      .catch(() => setErrorMessage(ErrorMessages.OnDelete))
+      .finally(() => {
+        setDeletedTodo(cur => cur.filter(curId => curId !== id));
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 0);
+      });
+  };
+
   const handleClearCompleted = () => {
     const completedIds = todoData
       .filter(todo => todo.completed)
@@ -130,6 +144,125 @@ export const App: React.FC = () => {
       });
   };
 
+  const handleToggleAll = () => {
+    const newCompletedStatus = !isAllTodosCompleted;
+
+    const todosToUpdate = todoData.filter(
+      todo => todo.completed !== newCompletedStatus,
+    );
+
+    const todosInOperation = todosToUpdate.map(todo => todo.id);
+
+    setOperatedTodo(cur => [...cur, ...todosInOperation]);
+
+    Promise.allSettled(
+      todosToUpdate.map(todo => {
+        const patchedTodo = {
+          ...todo,
+          completed: !todo.completed,
+        };
+
+        return todosApi.patchTodo(todo.id, patchedTodo);
+      }),
+    )
+      .then(results => {
+        const patchedTodos = results.map((result, index) => {
+          if (result.status === 'fulfilled') {
+            return {
+              ...todosToUpdate[index],
+              completed: !todosToUpdate[index].completed,
+            };
+          }
+
+          return null;
+        });
+
+        if (patchedTodos.includes(null)) {
+          setErrorMessage(ErrorMessages.OnPatch);
+        }
+
+        setTodoData(cur => {
+          return cur.map(todo => {
+            const patched = patchedTodos.find(p => p && p.id === todo.id);
+
+            return patched ? patched : todo;
+          });
+        });
+      })
+      .finally(() =>
+        setOperatedTodo(cur =>
+          cur.filter(id => !todosInOperation.includes(id)),
+        ),
+      );
+  };
+
+  const handleSwitchStatus = (currentId: number) => {
+    const currentTodo = todoData.find(todo => todo.id === currentId);
+
+    if (!currentTodo) {
+      return;
+    }
+
+    const patchedTodo = {
+      ...currentTodo,
+      completed: !currentTodo.completed,
+    };
+
+    setOperatedTodo(cur => [...cur, currentId]);
+
+    todosApi
+      .patchTodo(currentId, patchedTodo)
+      .then(() => {
+        setTodoData(current =>
+          current.map(todo => (todo.id === currentId ? patchedTodo : todo)),
+        );
+      })
+      .catch(() => setErrorMessage(ErrorMessages.OnPatch))
+      .finally(() => {
+        setOperatedTodo(cur => cur.filter(curId => curId !== currentId));
+      });
+  };
+
+  const handleUpdate = (editingTitle: string, todo: Todo) => {
+    const { id, title } = todo;
+
+    const normalizedTitle = editingTitle.trim();
+
+    if (!normalizedTitle) {
+      handleDelete(id);
+
+      return;
+    }
+
+    if (normalizedTitle === title) {
+      setEditingTodoId(null);
+
+      return;
+    }
+
+    setTodoSaving(id);
+
+    const editedTodo = {
+      ...todo,
+      title: normalizedTitle,
+    };
+
+    todosApi
+      .patchTodo(id, editedTodo)
+      .then((response: unknown) => {
+        const patchedTodo = response as Todo;
+
+        setTodoData(cur =>
+          cur.map(c => (c.id === patchedTodo.id ? patchedTodo : c)),
+        );
+        setEditingTodoId(null);
+      })
+      .catch(() => setErrorMessage(ErrorMessages.OnPatch))
+      .finally(() => {
+        setTodoSaving(null);
+      });
+  };
+
   const todoList = prepareTodoList(todoData, filterParam);
   const shouldShowElement = todoData.length > 0 || activeTodos > 0;
 
@@ -149,25 +282,35 @@ export const App: React.FC = () => {
           isInputActive={isInputActive}
           inputRef={inputRef}
           isAllTodosCompleted={isAllTodosCompleted}
-          setOperatedTodo={setOperatedTodo}
-          todoData={todoData}
-          setTodoData={setTodoData}
-          setErrorMessage={setErrorMessage}
           shouldShowElement={shouldShowElement}
+          handleToggleAll={handleToggleAll}
         />
 
-        <TodoList
-          todoList={todoList}
-          todoData={todoData}
-          tempTodo={tempTodo}
-          deletedTodo={deletedTodo}
-          setTodoData={setTodoData}
-          setDeletedTodo={setDeletedTodo}
-          setErrorMessage={setErrorMessage}
-          inputRef={inputRef}
-          operatedTodo={operatedTodo}
-          setOperatedTodo={setOperatedTodo}
-        />
+        <section className="todoapp__main" data-cy="TodoList">
+          {todoList.map((todo: Todo) => {
+            const isOverlayActive =
+              deletedTodo.includes(todo.id) ||
+              operatedTodo.includes(todo.id) ||
+              isTodoSaving === todo.id;
+
+            const isTodoEditing = editingTodoId === todo.id;
+
+            return (
+              <TodoItem
+                key={todo.id}
+                todo={todo}
+                isOverlayActive={isOverlayActive}
+                handleDelete={handleDelete}
+                handleSwitchStatus={handleSwitchStatus}
+                handleUpdate={handleUpdate}
+                isTodoEditing={isTodoEditing}
+                setEditingTodoId={setEditingTodoId}
+              />
+            );
+          })}
+
+          {tempTodo && <TodoItem todo={tempTodo} />}
+        </section>
 
         {shouldShowElement && (
           <AppFooter

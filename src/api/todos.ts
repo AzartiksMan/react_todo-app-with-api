@@ -1,7 +1,6 @@
 import { Todo } from '../types/Todo';
 import { client } from '../utils/fetchClient';
 
-// export const USER_ID = 3044;
 export const USER_ID = 3049;
 
 export const getTodos = () => {

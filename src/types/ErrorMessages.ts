@@ -5,4 +5,5 @@ export enum ErrorMessages {
   OnPost = 'Unable to add a todo',
   OnDelete = 'Unable to delete a todo',
   OnPatch = 'Unable to update a todo',
+  Unknown = 'Smth went wrong',
 }

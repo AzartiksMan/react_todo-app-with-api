@@ -3,11 +3,11 @@ import React from 'react';
 import { FilterParams } from '../../types/FilterParams';
 
 interface Props {
-  handleClearCompleted: () => void;
-  setFilterParam: (value: FilterParams) => void;
   filterParam: FilterParams;
   isCompletedTodos: boolean;
   activeTodos: number;
+  setFilterParam: (value: FilterParams) => void;
+  handleClearCompleted: () => void;
 }
 
 const filters = [
@@ -17,11 +17,11 @@ const filters = [
 ];
 
 export const AppFooter: React.FC<Props> = ({
-  handleClearCompleted,
-  setFilterParam,
   filterParam,
   isCompletedTodos,
   activeTodos,
+  setFilterParam,
+  handleClearCompleted,
 }) => (
   <footer className="todoapp__footer" data-cy="Footer">
     <span className="todo-count" data-cy="TodosCounter">

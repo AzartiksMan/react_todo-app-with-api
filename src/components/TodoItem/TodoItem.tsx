@@ -7,20 +7,20 @@ import { Todo } from '../../types/Todo';
 interface Props {
   todo: Todo;
   isOverlayActive?: boolean;
-  handleDelete?: (value: number) => void;
-  handleSwitchStatus?: (value: number) => void;
-  handleUpdate?: (text: string, value: Todo) => void;
   isTodoEditing?: boolean;
+  handleDelete?: (value: number) => void;
+  handleUpdate?: (text: string, value: Todo) => void;
+  handleSwitchStatus?: (value: number) => void;
   setEditingTodoId?: (value: number | null) => void;
 }
 
 export const TodoItem: React.FC<Props> = ({
   todo,
   isOverlayActive = true,
-  handleDelete = () => {},
-  handleSwitchStatus = () => {},
-  handleUpdate = () => {},
   isTodoEditing = false,
+  handleDelete = () => {},
+  handleUpdate = () => {},
+  handleSwitchStatus = () => {},
   setEditingTodoId = () => {},
 }) => {
   const { id, completed, title } = todo;

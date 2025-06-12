@@ -11,24 +11,10 @@ import { ErrorMessages } from './types/ErrorMessages';
 import { TodoItem } from './components/TodoItem';
 import { useTodoActions } from './hooks/useTodoActions';
 import { useBulkTodoActions } from './hooks/useBulkTodoActions';
-
-// винести в фанк файл
-const prepareTodoList = (todoData: Todo[], filter: FilterParams): Todo[] => {
-  return todoData.filter(todo => {
-    switch (filter) {
-      case FilterParams.Active:
-        return !todo.completed;
-      case FilterParams.Completed:
-        return todo.completed;
-      default:
-        return true;
-    }
-  });
-};
+import { prepareTodoList } from './utils/prepareTodoList';
 
 export const App: React.FC = () => {
   const [todoData, setTodoData] = useState<Todo[]>([]);
-  const [tempTodo, setTempTodo] = useState<Todo | null>(null); // смело в 1
 
   const [todoTitle, setTodoTitle] = useState('');
 
@@ -36,31 +22,32 @@ export const App: React.FC = () => {
 
   const [filterParam, setFilterParam] = useState(FilterParams.All);
 
-  const [isInputActive, setIsInputActive] = useState(true); // смело в 1
-
-  const [deletedTodo, setDeletedTodo] = useState<number[]>([]); // необходим обоим
+  const [deletedTodo, setDeletedTodo] = useState<number[]>([]);
 
   const [operatedTodo, setOperatedTodo] = useState<number[]>([]); // смело в 2
 
-  const [isTodoSaving, setTodoSaving] = useState<null | number>(null); // смело в 1
-
   const [editingTodoId, setEditingTodoId] = useState<null | number>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { handleSubmit, handleDelete, handleUpdate, handleSwitchStatus } =
-    useTodoActions({
-      todoData,
-      setTodoData,
-      setErrorMessage,
-      setTodoTitle,
-      setIsInputActive,
-      setTempTodo,
-      inputRef,
-      setDeletedTodo,
-      setEditingTodoId,
-      setTodoSaving,
-      setOperatedTodo,
-    });
+  const {
+    handleSubmit,
+    handleDelete,
+    handleUpdate,
+    handleSwitchStatus,
+    tempTodo,
+    isInputActive,
+    isTodoSaving,
+  } = useTodoActions({
+    todoData,
+    setTodoData,
+    setErrorMessage,
+    setTodoTitle,
+    inputRef,
+    setDeletedTodo,
+    setEditingTodoId,
+    setOperatedTodo,
+  });
 
   const { activeTodos, isCompletedTodos, isAllTodosCompleted } = useMemo(() => {
     const active = todoData.filter(todo => !todo.completed).length;

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import * as todosApi from '../api/todos';
 import { ErrorMessages } from '../types/ErrorMessages';
 import { Todo } from '../types/Todo';
@@ -7,12 +8,9 @@ interface Params {
   setTodoData: React.Dispatch<React.SetStateAction<Todo[]>>;
   setErrorMessage: React.Dispatch<React.SetStateAction<ErrorMessages>>;
   setTodoTitle: React.Dispatch<React.SetStateAction<string>>;
-  setIsInputActive: React.Dispatch<React.SetStateAction<boolean>>;
-  setTempTodo: React.Dispatch<React.SetStateAction<Todo | null>>;
   inputRef: React.RefObject<HTMLInputElement>;
   setDeletedTodo: React.Dispatch<React.SetStateAction<number[]>>;
   setEditingTodoId: React.Dispatch<React.SetStateAction<number | null>>;
-  setTodoSaving: React.Dispatch<React.SetStateAction<number | null>>;
   setOperatedTodo: React.Dispatch<React.SetStateAction<number[]>>;
 }
 
@@ -21,14 +19,15 @@ export const useTodoActions = ({
   setTodoData,
   setErrorMessage,
   setTodoTitle,
-  setIsInputActive,
-  setTempTodo,
   inputRef,
   setDeletedTodo,
   setEditingTodoId,
-  setTodoSaving,
   setOperatedTodo,
 }: Params) => {
+  const [tempTodo, setTempTodo] = useState<Todo | null>(null); // смело в 1
+  const [isInputActive, setIsInputActive] = useState(true); // смело в 1
+  const [isTodoSaving, setTodoSaving] = useState<null | number>(null); // смело в 1
+
   const handleSubmit = (title: string) => {
     if (!title) {
       setErrorMessage(ErrorMessages.OnEmptyTitle);
@@ -149,5 +148,8 @@ export const useTodoActions = ({
     handleDelete,
     handleUpdate,
     handleSwitchStatus,
+    tempTodo,
+    isInputActive,
+    isTodoSaving,
   };
 };

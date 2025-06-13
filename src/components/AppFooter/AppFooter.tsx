@@ -7,7 +7,7 @@ interface Props {
   isCompletedTodos: boolean;
   activeTodos: number;
   setFilterParam: (value: FilterParams) => void;
-  handleClearCompleted: () => void;
+  deleteCompleted: () => void;
 }
 
 const filters = [
@@ -21,7 +21,7 @@ export const AppFooter: React.FC<Props> = ({
   isCompletedTodos,
   activeTodos,
   setFilterParam,
-  handleClearCompleted,
+  deleteCompleted,
 }) => (
   <footer className="todoapp__footer" data-cy="Footer">
     <span className="todo-count" data-cy="TodosCounter">
@@ -53,7 +53,7 @@ export const AppFooter: React.FC<Props> = ({
       className="todoapp__clear-completed"
       data-cy="ClearCompletedButton"
       disabled={!isCompletedTodos}
-      onClick={() => handleClearCompleted()}
+      onClick={() => deleteCompleted()}
     >
       Clear completed
     </button>

@@ -1,27 +1,38 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import cn from 'classnames';
 
 interface Props {
-  onSubmit: (title: string) => void;
-  todoTitle: string;
-  setTodoTitle: (title: string) => void;
-  isInputActive: boolean;
-  inputRef: React.RefObject<HTMLInputElement>;
   isAllTodosCompleted: boolean;
   shouldShowElement: boolean;
-  handleToggleAll: () => void;
+  addTodo: (title: string) => Promise<boolean>;
+  toggleAll: () => void;
+  isLoading: boolean;
 }
 
 export const AppHeader: React.FC<Props> = ({
-  onSubmit,
-  todoTitle,
-  setTodoTitle,
-  isInputActive,
-  inputRef,
   isAllTodosCompleted,
   shouldShowElement,
-  handleToggleAll,
+  addTodo,
+  toggleAll,
+  isLoading,
 }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [todoTitle, setTodoTitle] = useState('');
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, [isLoading]);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const isSuccessed = await addTodo(todoTitle);
+
+    if (isSuccessed) {
+      setTodoTitle('');
+    }
+  };
+
   return (
     <header className="todoapp__header">
       {shouldShowElement && (
@@ -31,16 +42,11 @@ export const AppHeader: React.FC<Props> = ({
           className={cn('todoapp__toggle-all', {
             active: isAllTodosCompleted,
           })}
-          onClick={() => handleToggleAll()}
+          onClick={() => toggleAll()}
         />
       )}
 
-      <form // винестив  кромп
-        onSubmit={event => {
-          event.preventDefault();
-          onSubmit(todoTitle.trim());
-        }}
-      >
+      <form onSubmit={handleSubmit}>
         <input
           ref={inputRef}
           data-cy="NewTodoField"
@@ -50,7 +56,7 @@ export const AppHeader: React.FC<Props> = ({
           value={todoTitle}
           onChange={event => setTodoTitle(event.target.value)}
           autoFocus
-          disabled={!isInputActive}
+          disabled={isLoading}
         />
       </form>
     </header>

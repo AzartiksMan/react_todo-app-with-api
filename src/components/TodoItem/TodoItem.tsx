@@ -7,34 +7,50 @@ import { Todo } from '../../types/Todo';
 interface Props {
   todo: Todo;
   isOverlayActive?: boolean;
-  isTodoEditing?: boolean;
-  handleDelete?: (value: number) => void;
-  handleUpdate?: (text: string, value: Todo) => void;
-  handleSwitchStatus?: (value: number) => void;
-  setEditingTodoId?: (value: number | null) => void;
+  deleteTodo?: (value: number) => void;
+  handleUpdate?: (text: string, id: number) => void;
+  toggleTodo?: (value: number, completed: boolean) => Promise<boolean>;
 }
 
 export const TodoItem: React.FC<Props> = ({
   todo,
   isOverlayActive = true,
-  isTodoEditing = false,
-  handleDelete,
+  deleteTodo,
   handleUpdate,
-  handleSwitchStatus,
-  setEditingTodoId,
+  toggleTodo,
 }) => {
   const { id, completed, title } = todo;
 
-  const [editingTitle, setEditingTitle] = useState(todo.title);
+  const [editingTitle, setEditingTitle] = useState(title);
+  const [isTodoEditing, setIsTodoEditing] = useState<boolean>(false);
 
-  const handleSubmit = (event?: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
-    handleUpdate?.(editingTitle, todo);
+
+    const normalizedTitle = editingTitle.trim();
+
+    if (normalizedTitle === title) {
+      setIsTodoEditing(false);
+
+      return;
+    }
+
+    if (!normalizedTitle) {
+      deleteTodo?.(id);
+
+      return;
+    }
+
+    const success = await handleUpdate?.(normalizedTitle, id);
+
+    if (success) {
+      setIsTodoEditing(false);
+    }
   };
 
   const handleKeyUp = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
-      setEditingTodoId?.(null);
+      setIsTodoEditing?.(false);
       setEditingTitle(title);
     }
   };
@@ -47,7 +63,7 @@ export const TodoItem: React.FC<Props> = ({
           type="checkbox"
           className="todo__status"
           checked={completed}
-          onChange={() => handleSwitchStatus?.(id)}
+          onChange={() => toggleTodo?.(id, !completed)}
         />
       </label>
 
@@ -56,7 +72,7 @@ export const TodoItem: React.FC<Props> = ({
           <span
             data-cy="TodoTitle"
             className="todo__title"
-            onDoubleClick={() => setEditingTodoId?.(id)}
+            onDoubleClick={() => setIsTodoEditing?.(true)}
           >
             {title}
           </span>
@@ -65,7 +81,7 @@ export const TodoItem: React.FC<Props> = ({
             type="button"
             className="todo__remove"
             data-cy="TodoDelete"
-            onClick={() => handleDelete?.(id)}
+            onClick={() => deleteTodo?.(id)}
           >
             ×
           </button>

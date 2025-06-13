@@ -3,26 +3,14 @@ import * as todosApi from '../api/todos';
 import { ErrorMessages } from '../types/ErrorMessages';
 import { Todo } from '../types/Todo';
 
-interface Params {
-  inputRef: React.RefObject<HTMLInputElement>;
-  setErrorMessage: React.Dispatch<React.SetStateAction<ErrorMessages>>;
-  setTodoTitle: React.Dispatch<React.SetStateAction<string>>;
-  setEditingTodoId: React.Dispatch<React.SetStateAction<number | null>>;
-}
-
-export const useTodoActions = ({
-  inputRef,
-  setErrorMessage,
-  setTodoTitle,
-  setEditingTodoId,
-}: Params) => {
+export const useTodoActions = () => {
   const [todoData, setTodoData] = useState<Todo[]>([]);
 
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
 
   const [todoInOperation, setTodoInOperation] = useState<number[]>([]);
 
-  const [isInputActive, setIsInputActive] = useState(true);
+  const [errorMessage, setErrorMessage] = useState(ErrorMessages.None);
 
   useEffect(() => {
     todosApi
@@ -39,7 +27,9 @@ export const useTodoActions = ({
   } = useMemo(
     () => ({
       activeTodos: todoData.filter(todo => !todo.completed).length,
+
       isCompletedTodos: todoData.some(todo => todo.completed),
+
       isAllTodoCompleted:
         todoData.length > 0 && todoData.every(todo => todo.completed),
       shouldShowElement: todoData.length > 0,
@@ -47,218 +37,165 @@ export const useTodoActions = ({
     [todoData],
   );
 
-  const handleSubmit = (title: string) => {
-    if (!title) {
+  const addTodo = async (title: string) => {
+    const normalizedTitle = title.trim();
+
+    if (!normalizedTitle) {
       setErrorMessage(ErrorMessages.OnEmptyTitle);
 
-      return;
+      return Promise.resolve(false);
     }
-
-    setIsInputActive(false);
 
     const newTodo = {
       userId: todosApi.USER_ID,
-      title: title,
+      title: normalizedTitle,
       completed: false,
     };
 
     setTempTodo({ id: 0, ...newTodo });
+    setTodoInOperation(cur => [...cur, 0]);
 
-    todosApi
-      .postTodo(newTodo)
-      .then(todo => {
-        setTodoData(current => [...current, todo]);
-        setTodoTitle('');
-      })
-      .catch(() => setErrorMessage(ErrorMessages.OnPost))
-      .finally(() => {
-        setIsInputActive(true);
-        setTempTodo(null);
-        setTimeout(() => {
-          inputRef.current?.focus();
-        }, 0);
-      });
+    try {
+      const todoFromServer = await todosApi.postTodo(newTodo);
+
+      setTodoData(current => [...current, todoFromServer]);
+
+      return true;
+    } catch {
+      setErrorMessage(ErrorMessages.OnPost);
+
+      return false;
+    } finally {
+      setTodoInOperation(cur => cur.filter(c => c !== 0));
+      setTempTodo(null);
+    }
   };
 
-  const handleDelete = (id: number) => {
+  const deleteTodo = async (id: number) => {
     setTodoInOperation(cur => [...cur, id]);
 
-    todosApi
-      .deleteTodo(id)
-      .then(() => setTodoData(cur => cur.filter(todo => todo.id !== id)))
-      .catch(() => setErrorMessage(ErrorMessages.OnDelete))
-      .finally(() => {
-        setTodoInOperation(cur => cur.filter(curId => curId !== id));
-        setTimeout(() => {
-          inputRef.current?.focus();
-        }, 0);
-      });
+    try {
+      await todosApi.deleteTodo(id);
+
+      setTodoData(cur => cur.filter(todo => todo.id !== id));
+
+      return true;
+    } catch {
+      setErrorMessage(ErrorMessages.OnDelete);
+
+      return false;
+    } finally {
+      setTodoInOperation(cur => cur.filter(curId => curId !== id));
+    }
   };
 
-  const handleUpdate = (editingTitle: string, todo: Todo) => {
-    const { id, title } = todo;
-
-    const normalizedTitle = editingTitle.trim();
-
-    if (!normalizedTitle) {
-      handleDelete(id);
-
-      return;
-    }
-
-    if (normalizedTitle === title) {
-      setEditingTodoId(null);
-
-      return;
-    }
-
+  const handleUpdate = async (
+    normalizedTitle: string,
+    id: number,
+  ): Promise<boolean> => {
     setTodoInOperation(cur => [...cur, id]);
 
-    const editedTodo = {
-      ...todo,
-      title: normalizedTitle,
-    };
-
-    todosApi
-      .patchTodo(id, editedTodo)
-      .then((response: unknown) => {
-        const patchedTodo = response as Todo;
-
-        setTodoData(cur =>
-          cur.map(c => (c.id === patchedTodo.id ? patchedTodo : c)),
-        );
-        setEditingTodoId(null);
-      })
-      .catch(() => setErrorMessage(ErrorMessages.OnPatch))
-      .finally(() => {
-        setTodoInOperation(cur => cur.filter(c => c !== id));
+    try {
+      const updatedTodo = await todosApi.patchTodo(id, {
+        title: normalizedTitle,
       });
+
+      setTodoData(cur =>
+        cur.map(c => (c.id === updatedTodo.id ? updatedTodo : c)),
+      );
+
+      return true;
+    } catch {
+      setErrorMessage(ErrorMessages.OnPatch);
+
+      return false;
+    } finally {
+      setTodoInOperation(cur => cur.filter(curId => curId !== id));
+    }
   };
 
-  const handleSwitchStatus = (currentId: number) => {
-    const currentTodo = todoData.find(todo => todo.id === currentId);
-
-    if (!currentTodo) {
-      return;
-    }
-
-    const patchedTodo = {
-      ...currentTodo,
-      completed: !currentTodo.completed,
-    };
-
+  const toggleTodo = async (
+    currentId: number,
+    completed: boolean,
+  ): Promise<boolean> => {
     setTodoInOperation(cur => [...cur, currentId]);
 
-    todosApi
-      .patchTodo(currentId, patchedTodo)
-      .then(() => {
-        setTodoData(current =>
-          current.map(todo => (todo.id === currentId ? patchedTodo : todo)),
-        );
-      })
-      .catch(() => setErrorMessage(ErrorMessages.OnPatch))
-      .finally(() => {
-        setTodoInOperation(cur => cur.filter(curId => curId !== currentId));
-      });
+    try {
+      const updatedTodo = await todosApi.patchTodo(currentId, { completed });
+
+      setTodoData(cur =>
+        cur.map(todo =>
+          todo.id === currentId
+            ? { ...todo, completed: updatedTodo.completed }
+            : todo,
+        ),
+      );
+
+      return true;
+    } catch {
+      setErrorMessage(ErrorMessages.OnPatch);
+
+      return false;
+    } finally {
+      setTodoInOperation(cur => cur.filter(curId => curId !== currentId));
+    }
   };
 
-  const handleClearCompleted = () => {
+  const deleteCompleted = async () => {
     const completedIds = todoData
       .filter(todo => todo.completed)
       .map(todo => todo.id);
 
     setTodoInOperation(cur => [...cur, ...completedIds]);
 
-    Promise.allSettled(
-      completedIds.map(id => todosApi.deleteTodo(id).then(() => id)),
-    )
-      .then(results => {
-        const succesIds = results
-          .filter(r => r.status === 'fulfilled')
-          .map(r => r.value);
+    const results = await Promise.all(completedIds.map(id => deleteTodo(id)));
 
-        const isSomeFailed = results.some(r => r.status === 'rejected');
+    const hasError = results.includes(false);
 
-        if (isSomeFailed) {
-          setErrorMessage(ErrorMessages.OnDelete);
-        }
+    if (hasError) {
+      setErrorMessage(ErrorMessages.OnDelete);
+    }
 
-        setTodoData(cur => cur.filter(todo => !succesIds.includes(todo.id)));
-      })
-      .finally(() => {
-        setTodoInOperation(cur => cur.filter(id => !completedIds.includes(id)));
-        setTimeout(() => {
-          inputRef.current?.focus();
-        }, 0); // ще раз спитать на QnA
-      });
+    setTodoInOperation(cur => cur.filter(id => !completedIds.includes(id)));
   };
 
-  const handleToggleAll = () => {
-    const newCompletedStatus = !isAllTodoCompleted;
+  const toggleAll = async () => {
+    const newStatus = !isAllTodoCompleted;
 
-    const todosToUpdate = todoData.filter(
-      todo => todo.completed !== newCompletedStatus,
-    );
+    const todosToUpdate = todoData.filter(todo => todo.completed !== newStatus);
 
     const todosInOperation = todosToUpdate.map(todo => todo.id);
 
     setTodoInOperation(cur => [...cur, ...todosInOperation]);
 
-    Promise.allSettled(
-      todosToUpdate.map(todo => {
-        const patchedTodo = {
-          ...todo,
-          completed: !todo.completed,
-        };
+    const results = await Promise.all(
+      todosToUpdate.map(todo => toggleTodo(todo.id, newStatus)),
+    );
 
-        return todosApi.patchTodo(todo.id, patchedTodo);
-      }),
-    )
-      .then(results => {
-        const patchedTodos = results.map((result, index) => {
-          if (result.status === 'fulfilled') {
-            return {
-              ...todosToUpdate[index],
-              completed: !todosToUpdate[index].completed,
-            };
-          }
+    const hasError = results.includes(false);
 
-          return null;
-        });
+    if (hasError) {
+      setErrorMessage(ErrorMessages.OnPatch);
+    }
 
-        if (patchedTodos.includes(null)) {
-          setErrorMessage(ErrorMessages.OnPatch);
-        }
-
-        setTodoData(cur => {
-          return cur.map(todo => {
-            const patched = patchedTodos.find(p => p && p.id === todo.id);
-
-            return patched ? patched : todo;
-          });
-        });
-      })
-      .finally(() =>
-        setTodoInOperation(cur =>
-          cur.filter(id => !todosInOperation.includes(id)),
-        ),
-      );
+    setTodoInOperation(cur => cur.filter(id => !todosInOperation.includes(id)));
   };
 
   return {
     tempTodo,
-    isInputActive,
     todoData,
     isAllTodoCompleted,
     isCompletedTodos,
     activeTodos,
     todoInOperation,
     shouldShowElement,
-    handleSubmit,
-    handleDelete,
+    errorMessage,
+    setErrorMessage,
+    addTodo,
+    deleteTodo,
     handleUpdate,
-    handleSwitchStatus,
-    handleClearCompleted,
-    handleToggleAll,
+    toggleTodo,
+    deleteCompleted,
+    toggleAll,
   };
 };

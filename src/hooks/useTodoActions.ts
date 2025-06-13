@@ -1,32 +1,51 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as todosApi from '../api/todos';
 import { ErrorMessages } from '../types/ErrorMessages';
 import { Todo } from '../types/Todo';
 
 interface Params {
-  todoData: Todo[];
-  setTodoData: React.Dispatch<React.SetStateAction<Todo[]>>;
+  inputRef: React.RefObject<HTMLInputElement>;
   setErrorMessage: React.Dispatch<React.SetStateAction<ErrorMessages>>;
   setTodoTitle: React.Dispatch<React.SetStateAction<string>>;
-  inputRef: React.RefObject<HTMLInputElement>;
-  setDeletedTodo: React.Dispatch<React.SetStateAction<number[]>>;
   setEditingTodoId: React.Dispatch<React.SetStateAction<number | null>>;
-  setOperatedTodo: React.Dispatch<React.SetStateAction<number[]>>;
 }
 
 export const useTodoActions = ({
-  todoData,
-  setTodoData,
+  inputRef,
   setErrorMessage,
   setTodoTitle,
-  inputRef,
-  setDeletedTodo,
   setEditingTodoId,
-  setOperatedTodo,
 }: Params) => {
-  const [tempTodo, setTempTodo] = useState<Todo | null>(null); // смело в 1
-  const [isInputActive, setIsInputActive] = useState(true); // смело в 1
-  const [isTodoSaving, setTodoSaving] = useState<null | number>(null); // смело в 1
+  const [todoData, setTodoData] = useState<Todo[]>([]);
+
+  const [tempTodo, setTempTodo] = useState<Todo | null>(null);
+
+  const [todoInOperation, setTodoInOperation] = useState<number[]>([]);
+
+  const [isInputActive, setIsInputActive] = useState(true);
+
+  useEffect(() => {
+    todosApi
+      .getTodos()
+      .then(setTodoData)
+      .catch(() => setErrorMessage(ErrorMessages.OnGet));
+  }, [setErrorMessage]);
+
+  const {
+    activeTodos,
+    isCompletedTodos,
+    isAllTodoCompleted,
+    shouldShowElement,
+  } = useMemo(
+    () => ({
+      activeTodos: todoData.filter(todo => !todo.completed).length,
+      isCompletedTodos: todoData.some(todo => todo.completed),
+      isAllTodoCompleted:
+        todoData.length > 0 && todoData.every(todo => todo.completed),
+      shouldShowElement: todoData.length > 0,
+    }),
+    [todoData],
+  );
 
   const handleSubmit = (title: string) => {
     if (!title) {
@@ -62,14 +81,14 @@ export const useTodoActions = ({
   };
 
   const handleDelete = (id: number) => {
-    setDeletedTodo(cur => [...cur, id]);
+    setTodoInOperation(cur => [...cur, id]);
 
     todosApi
       .deleteTodo(id)
       .then(() => setTodoData(cur => cur.filter(todo => todo.id !== id)))
       .catch(() => setErrorMessage(ErrorMessages.OnDelete))
       .finally(() => {
-        setDeletedTodo(cur => cur.filter(curId => curId !== id));
+        setTodoInOperation(cur => cur.filter(curId => curId !== id));
         setTimeout(() => {
           inputRef.current?.focus();
         }, 0);
@@ -93,7 +112,7 @@ export const useTodoActions = ({
       return;
     }
 
-    setTodoSaving(id);
+    setTodoInOperation(cur => [...cur, id]);
 
     const editedTodo = {
       ...todo,
@@ -112,7 +131,7 @@ export const useTodoActions = ({
       })
       .catch(() => setErrorMessage(ErrorMessages.OnPatch))
       .finally(() => {
-        setTodoSaving(null);
+        setTodoInOperation(cur => cur.filter(c => c !== id));
       });
   };
 
@@ -128,7 +147,7 @@ export const useTodoActions = ({
       completed: !currentTodo.completed,
     };
 
-    setOperatedTodo(cur => [...cur, currentId]);
+    setTodoInOperation(cur => [...cur, currentId]);
 
     todosApi
       .patchTodo(currentId, patchedTodo)
@@ -139,17 +158,107 @@ export const useTodoActions = ({
       })
       .catch(() => setErrorMessage(ErrorMessages.OnPatch))
       .finally(() => {
-        setOperatedTodo(cur => cur.filter(curId => curId !== currentId));
+        setTodoInOperation(cur => cur.filter(curId => curId !== currentId));
       });
   };
 
+  const handleClearCompleted = () => {
+    const completedIds = todoData
+      .filter(todo => todo.completed)
+      .map(todo => todo.id);
+
+    setTodoInOperation(cur => [...cur, ...completedIds]);
+
+    Promise.allSettled(
+      completedIds.map(id => todosApi.deleteTodo(id).then(() => id)),
+    )
+      .then(results => {
+        const succesIds = results
+          .filter(r => r.status === 'fulfilled')
+          .map(r => r.value);
+
+        const isSomeFailed = results.some(r => r.status === 'rejected');
+
+        if (isSomeFailed) {
+          setErrorMessage(ErrorMessages.OnDelete);
+        }
+
+        setTodoData(cur => cur.filter(todo => !succesIds.includes(todo.id)));
+      })
+      .finally(() => {
+        setTodoInOperation(cur => cur.filter(id => !completedIds.includes(id)));
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 0); // ще раз спитать на QnA
+      });
+  };
+
+  const handleToggleAll = () => {
+    const newCompletedStatus = !isAllTodoCompleted;
+
+    const todosToUpdate = todoData.filter(
+      todo => todo.completed !== newCompletedStatus,
+    );
+
+    const todosInOperation = todosToUpdate.map(todo => todo.id);
+
+    setTodoInOperation(cur => [...cur, ...todosInOperation]);
+
+    Promise.allSettled(
+      todosToUpdate.map(todo => {
+        const patchedTodo = {
+          ...todo,
+          completed: !todo.completed,
+        };
+
+        return todosApi.patchTodo(todo.id, patchedTodo);
+      }),
+    )
+      .then(results => {
+        const patchedTodos = results.map((result, index) => {
+          if (result.status === 'fulfilled') {
+            return {
+              ...todosToUpdate[index],
+              completed: !todosToUpdate[index].completed,
+            };
+          }
+
+          return null;
+        });
+
+        if (patchedTodos.includes(null)) {
+          setErrorMessage(ErrorMessages.OnPatch);
+        }
+
+        setTodoData(cur => {
+          return cur.map(todo => {
+            const patched = patchedTodos.find(p => p && p.id === todo.id);
+
+            return patched ? patched : todo;
+          });
+        });
+      })
+      .finally(() =>
+        setTodoInOperation(cur =>
+          cur.filter(id => !todosInOperation.includes(id)),
+        ),
+      );
+  };
+
   return {
+    tempTodo,
+    isInputActive,
+    todoData,
+    isAllTodoCompleted,
+    isCompletedTodos,
+    activeTodos,
+    todoInOperation,
+    shouldShowElement,
     handleSubmit,
     handleDelete,
     handleUpdate,
     handleSwitchStatus,
-    tempTodo,
-    isInputActive,
-    isTodoSaving,
+    handleClearCompleted,
+    handleToggleAll,
   };
 };

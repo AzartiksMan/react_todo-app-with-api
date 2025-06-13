@@ -32,10 +32,6 @@ export const TodoItem: React.FC<Props> = ({
     handleUpdate(editingTitle, todo);
   };
 
-  const handleBlur = () => {
-    handleSubmit();
-  };
-
   const handleKeyUp = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
       setEditingTodoId(null);
@@ -84,7 +80,7 @@ export const TodoItem: React.FC<Props> = ({
             autoFocus
             value={editingTitle}
             onChange={event => setEditingTitle(event.target.value)}
-            onBlur={handleBlur}
+            onBlur={() => handleSubmit()}
             onKeyUp={handleKeyUp}
           />
         </form>

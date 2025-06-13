@@ -1,6 +1,6 @@
 import cn from 'classnames';
 import React, { useEffect } from 'react';
-import { ErrorMessages } from '../../types/ErrorMessages';
+import { ErrorMessages } from '../../types/types';
 
 interface Props {
   errorMessage: string;

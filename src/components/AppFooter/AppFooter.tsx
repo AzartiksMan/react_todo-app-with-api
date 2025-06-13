@@ -1,27 +1,27 @@
 import cn from 'classnames';
 import React from 'react';
-import { FilterParams } from '../../types/FilterParams';
+import { FilterParams } from '../../types/types';
 
 interface Props {
-  filterParam: FilterParams;
   isCompletedTodos: boolean;
+  filter: FilterParams;
   activeTodos: number;
-  setFilterParam: (value: FilterParams) => void;
   deleteCompleted: () => void;
+  setFilter: (value: FilterParams) => void;
 }
 
-const filters = [
+const filterOptions = [
   { value: FilterParams.All, label: 'All' },
   { value: FilterParams.Active, label: 'Active' },
   { value: FilterParams.Completed, label: 'Completed' },
 ];
 
 export const AppFooter: React.FC<Props> = ({
-  filterParam,
   isCompletedTodos,
+  filter,
   activeTodos,
-  setFilterParam,
   deleteCompleted,
+  setFilter,
 }) => (
   <footer className="todoapp__footer" data-cy="Footer">
     <span className="todo-count" data-cy="TodosCounter">
@@ -29,18 +29,18 @@ export const AppFooter: React.FC<Props> = ({
     </span>
 
     <nav className="filter" data-cy="Filter">
-      {filters.map(filter => {
-        const { value, label } = filter;
+      {filterOptions.map(option => {
+        const { value, label } = option;
 
         return (
           <a
             key={value}
             href="#/"
             className={cn('filter__link', {
-              selected: filterParam === value,
+              selected: filter === value,
             })}
             data-cy={`FilterLink${label}`}
-            onClick={() => setFilterParam(value)}
+            onClick={() => setFilter(value)}
           >
             {label}
           </a>
@@ -53,7 +53,7 @@ export const AppFooter: React.FC<Props> = ({
       className="todoapp__clear-completed"
       data-cy="ClearCompletedButton"
       disabled={!isCompletedTodos}
-      onClick={() => deleteCompleted()}
+      onClick={deleteCompleted}
     >
       Clear completed
     </button>

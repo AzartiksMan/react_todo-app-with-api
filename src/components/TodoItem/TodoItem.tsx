@@ -2,21 +2,21 @@
 
 import React, { useState } from 'react';
 import cn from 'classnames';
-import { Todo } from '../../types/Todo';
+import { Todo } from '../../types/types';
 
 interface Props {
-  todo: Todo;
   isOverlayActive?: boolean;
-  deleteTodo?: (value: number) => void;
+  todo: Todo;
   handleUpdate?: (text: string, id: number) => void;
+  deleteTodo?: (value: number) => void;
   toggleTodo?: (value: number, completed: boolean) => Promise<boolean>;
 }
 
 export const TodoItem: React.FC<Props> = ({
-  todo,
   isOverlayActive = true,
-  deleteTodo,
+  todo,
   handleUpdate,
+  deleteTodo,
   toggleTodo,
 }) => {
   const { id, completed, title } = todo;

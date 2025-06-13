@@ -2,22 +2,22 @@ import React, { useEffect, useRef, useState } from 'react';
 import cn from 'classnames';
 
 interface Props {
-  isAllTodosCompleted: boolean;
+  isAllTodoCompleted: boolean;
   shouldShowElement: boolean;
-  addTodo: (title: string) => Promise<boolean>;
-  toggleAll: () => void;
   isLoading: boolean;
+  toggleAll: () => void;
+  addTodo: (title: string) => Promise<boolean>;
 }
 
 export const AppHeader: React.FC<Props> = ({
-  isAllTodosCompleted,
+  isAllTodoCompleted,
   shouldShowElement,
-  addTodo,
-  toggleAll,
   isLoading,
+  toggleAll,
+  addTodo,
 }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [todoTitle, setTodoTitle] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -40,9 +40,9 @@ export const AppHeader: React.FC<Props> = ({
           type="button"
           data-cy="ToggleAllButton"
           className={cn('todoapp__toggle-all', {
-            active: isAllTodosCompleted,
+            active: isAllTodoCompleted,
           })}
-          onClick={() => toggleAll()}
+          onClick={toggleAll}
         />
       )}
 

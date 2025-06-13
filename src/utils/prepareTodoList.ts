@@ -1,5 +1,4 @@
-import { FilterParams } from '../types/FilterParams';
-import { Todo } from '../types/Todo';
+import { FilterParams, Todo } from '../types/types';
 
 export const prepareTodoList = (
   todoData: Todo[],

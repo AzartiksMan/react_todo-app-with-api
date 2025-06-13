@@ -1,4 +1,4 @@
-import { Todo } from '../types/Todo';
+import { Todo } from '../types/types';
 import { client } from '../utils/fetchClient';
 
 type UpdateTodoData =

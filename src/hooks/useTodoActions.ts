@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as todosApi from '../api/todos';
-import { ErrorMessages } from '../types/ErrorMessages';
-import { Todo } from '../types/Todo';
+import { ErrorMessages, Todo } from '../types/types';
 
 export const useTodoActions = () => {
   const [todoData, setTodoData] = useState<Todo[]>([]);
@@ -32,10 +31,13 @@ export const useTodoActions = () => {
 
       isAllTodoCompleted:
         todoData.length > 0 && todoData.every(todo => todo.completed),
-      shouldShowElement: todoData.length > 0,
+
+      shouldShowElement: !!todoData.length,
     }),
     [todoData],
   );
+
+  const isLoading = useMemo(() => !!todoInOperation.length, [todoInOperation]);
 
   const addTodo = async (title: string) => {
     const normalizedTitle = title.trim();
@@ -146,17 +148,7 @@ export const useTodoActions = () => {
       .filter(todo => todo.completed)
       .map(todo => todo.id);
 
-    setTodoInOperation(cur => [...cur, ...completedIds]);
-
-    const results = await Promise.all(completedIds.map(id => deleteTodo(id)));
-
-    const hasError = results.includes(false);
-
-    if (hasError) {
-      setErrorMessage(ErrorMessages.OnDelete);
-    }
-
-    setTodoInOperation(cur => cur.filter(id => !completedIds.includes(id)));
+    await Promise.all(completedIds.map(id => deleteTodo(id)));
   };
 
   const toggleAll = async () => {
@@ -164,38 +156,27 @@ export const useTodoActions = () => {
 
     const todosToUpdate = todoData.filter(todo => todo.completed !== newStatus);
 
-    const todosInOperation = todosToUpdate.map(todo => todo.id);
-
-    setTodoInOperation(cur => [...cur, ...todosInOperation]);
-
-    const results = await Promise.all(
+    await Promise.all(
       todosToUpdate.map(todo => toggleTodo(todo.id, newStatus)),
     );
-
-    const hasError = results.includes(false);
-
-    if (hasError) {
-      setErrorMessage(ErrorMessages.OnPatch);
-    }
-
-    setTodoInOperation(cur => cur.filter(id => !todosInOperation.includes(id)));
   };
 
   return {
+    isAllTodoCompleted,
+    shouldShowElement,
+    isCompletedTodos,
+    todoInOperation,
+    errorMessage,
+    activeTodos,
+    isLoading,
     tempTodo,
     todoData,
-    isAllTodoCompleted,
-    isCompletedTodos,
-    activeTodos,
-    todoInOperation,
-    shouldShowElement,
-    errorMessage,
     setErrorMessage,
-    addTodo,
-    deleteTodo,
-    handleUpdate,
-    toggleTodo,
     deleteCompleted,
+    handleUpdate,
+    deleteTodo,
+    toggleTodo,
     toggleAll,
+    addTodo,
   };
 };

@@ -3,39 +3,37 @@ import * as todosApi from './api/todos';
 import { useTodoActions } from './hooks/useTodoActions';
 import { prepareTodoList } from './utils/prepareTodoList';
 
-import { FilterParams } from './types/FilterParams';
-import { Todo } from './types/Todo';
-
-import { UserWarning } from './UserWarning';
+import { UserWarning } from './components/UserWarning';
 import { AppHeader } from './components/AppHeader';
 import { TodoItem } from './components/TodoItem';
 import { AppFooter } from './components/AppFooter';
 import { ErrorNotification } from './components/ErrorNotification';
 import { CSSTransition, TransitionGroup } from 'react-transition-group';
+import { FilterParams, Todo } from './types/types';
 
 export const App: React.FC = () => {
-  const [filterParam, setFilterParam] = useState(FilterParams.All);
-
   const {
+    isAllTodoCompleted,
+    shouldShowElement,
+    isCompletedTodos,
+    todoInOperation,
+    errorMessage,
+    activeTodos,
+    isLoading,
     tempTodo,
     todoData,
-    isAllTodoCompleted,
-    isCompletedTodos,
-    activeTodos,
-    todoInOperation,
-    shouldShowElement,
-    errorMessage,
     setErrorMessage,
-    addTodo,
-    deleteTodo,
-    handleUpdate,
-    toggleTodo,
     deleteCompleted,
+    handleUpdate,
+    deleteTodo,
+    toggleTodo,
     toggleAll,
+    addTodo,
   } = useTodoActions();
 
-  const todoList = prepareTodoList(todoData, filterParam);
-  const isLoading = !!todoInOperation.length;
+  const [filter, setFilter] = useState<FilterParams>(FilterParams.All);
+
+  const todoList = prepareTodoList(todoData, filter);
 
   if (!todosApi.USER_ID) {
     return <UserWarning />;
@@ -47,11 +45,11 @@ export const App: React.FC = () => {
 
       <div className="todoapp__content">
         <AppHeader
-          isAllTodosCompleted={isAllTodoCompleted}
+          isAllTodoCompleted={isAllTodoCompleted}
           shouldShowElement={shouldShowElement}
-          addTodo={addTodo}
-          toggleAll={toggleAll}
           isLoading={isLoading}
+          toggleAll={toggleAll}
+          addTodo={addTodo}
         />
 
         <section className="todoapp__main" data-cy="TodoList">
@@ -62,11 +60,10 @@ export const App: React.FC = () => {
               return (
                 <CSSTransition key={todo.id} timeout={300} classNames="item">
                   <TodoItem
-                    key={todo.id}
-                    todo={todo}
                     isOverlayActive={isOverlayActive}
-                    deleteTodo={deleteTodo}
+                    todo={todo}
                     handleUpdate={handleUpdate}
+                    deleteTodo={deleteTodo}
                     toggleTodo={toggleTodo}
                   />
                 </CSSTransition>
@@ -83,11 +80,11 @@ export const App: React.FC = () => {
 
         {shouldShowElement && (
           <AppFooter
-            filterParam={filterParam}
             isCompletedTodos={isCompletedTodos}
+            filter={filter}
             activeTodos={activeTodos}
-            setFilterParam={setFilterParam}
             deleteCompleted={deleteCompleted}
+            setFilter={setFilter}
           />
         )}
       </div>

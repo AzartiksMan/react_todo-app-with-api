@@ -3,13 +3,14 @@ import * as todosApi from './api/todos';
 import { useTodoActions } from './hooks/useTodoActions';
 import { prepareTodoList } from './utils/prepareTodoList';
 
+import { FilterParams, Todo } from './types/types';
+import { CSSTransition, TransitionGroup } from 'react-transition-group';
+
 import { UserWarning } from './components/UserWarning';
 import { AppHeader } from './components/AppHeader';
 import { TodoItem } from './components/TodoItem';
 import { AppFooter } from './components/AppFooter';
 import { ErrorNotification } from './components/ErrorNotification';
-import { CSSTransition, TransitionGroup } from 'react-transition-group';
-import { FilterParams, Todo } from './types/types';
 
 export const App: React.FC = () => {
   const {

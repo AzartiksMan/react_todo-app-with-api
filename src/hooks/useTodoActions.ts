@@ -9,7 +9,9 @@ export const useTodoActions = () => {
 
   const [todoInOperation, setTodoInOperation] = useState<number[]>([]);
 
-  const [errorMessage, setErrorMessage] = useState(ErrorMessages.None);
+  const [errorMessage, setErrorMessage] = useState<ErrorMessages>(
+    ErrorMessages.None,
+  );
 
   useEffect(() => {
     todosApi
@@ -68,7 +70,7 @@ export const useTodoActions = () => {
 
       return false;
     } finally {
-      setTodoInOperation(cur => cur.filter(c => c !== 0));
+      setTodoInOperation(cur => cur.filter(id => id !== 0));
       setTempTodo(null);
     }
   };
@@ -91,10 +93,7 @@ export const useTodoActions = () => {
     }
   };
 
-  const handleUpdate = async (
-    normalizedTitle: string,
-    id: number,
-  ): Promise<boolean> => {
+  const handleUpdate = async (normalizedTitle: string, id: number) => {
     setTodoInOperation(cur => [...cur, id]);
 
     try {
@@ -103,7 +102,7 @@ export const useTodoActions = () => {
       });
 
       setTodoData(cur =>
-        cur.map(c => (c.id === updatedTodo.id ? updatedTodo : c)),
+        cur.map(todo => (todo.id === updatedTodo.id ? updatedTodo : todo)),
       );
 
       return true;
@@ -116,10 +115,7 @@ export const useTodoActions = () => {
     }
   };
 
-  const toggleTodo = async (
-    currentId: number,
-    completed: boolean,
-  ): Promise<boolean> => {
+  const toggleTodo = async (currentId: number, completed: boolean) => {
     setTodoInOperation(cur => [...cur, currentId]);
 
     try {
@@ -148,16 +144,56 @@ export const useTodoActions = () => {
       .filter(todo => todo.completed)
       .map(todo => todo.id);
 
-    await Promise.all(completedIds.map(id => deleteTodo(id)));
+    setTodoInOperation(cur => [...cur, ...completedIds]);
+
+    const results = await Promise.allSettled(
+      completedIds.map(id => todosApi.deleteTodo(id)),
+    );
+
+    const hasError = results.some(result => result.status === 'rejected');
+
+    const successIds = completedIds.filter(
+      (_, idx) => results[idx].status === 'fulfilled',
+    );
+
+    if (hasError) {
+      setErrorMessage(ErrorMessages.OnDelete);
+    }
+
+    setTodoInOperation(cur => cur.filter(id => !completedIds.includes(id)));
+
+    setTodoData(cur => cur.filter(todo => !successIds.includes(todo.id)));
   };
 
   const toggleAll = async () => {
     const newStatus = !isAllTodoCompleted;
 
-    const todosToUpdate = todoData.filter(todo => todo.completed !== newStatus);
+    const idsToUpdate = todoData
+      .filter(todo => todo.completed !== newStatus)
+      .map(todo => todo.id);
 
-    await Promise.all(
-      todosToUpdate.map(todo => toggleTodo(todo.id, newStatus)),
+    setTodoInOperation(cur => [...cur, ...idsToUpdate]);
+
+    const results = await Promise.allSettled(
+      idsToUpdate.map(id => todosApi.patchTodo(id, { completed: newStatus })),
+    );
+
+    const hasError = results.some(result => result.status === 'rejected');
+
+    const successIds = results
+      .filter(result => result.status === 'fulfilled')
+      .map(item => item.value.id);
+
+    if (hasError) {
+      setErrorMessage(ErrorMessages.OnPatch);
+    }
+
+    setTodoInOperation(cur => cur.filter(id => !idsToUpdate.includes(id)));
+
+    setTodoData(cur =>
+      cur.map(todo =>
+        successIds.includes(todo.id) ? { ...todo, completed: newStatus } : todo,
+      ),
     );
   };
 

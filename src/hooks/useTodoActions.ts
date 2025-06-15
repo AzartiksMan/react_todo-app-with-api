@@ -18,7 +18,7 @@ export const useTodoActions = () => {
       .getTodos()
       .then(setTodoData)
       .catch(() => setErrorMessage(ErrorMessages.OnGet));
-  }, [setErrorMessage]);
+  }, []);
 
   const {
     activeTodos,

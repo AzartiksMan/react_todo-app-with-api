@@ -20,24 +20,20 @@ export const useTodoActions = () => {
       .catch(() => setErrorMessage(ErrorMessages.OnGet));
   }, []);
 
-  const {
-    activeTodos,
-    isCompletedTodos,
-    isAllTodoCompleted,
-    shouldShowElement,
-  } = useMemo(
-    () => ({
-      activeTodos: todoData.filter(todo => !todo.completed).length,
+  const { activeTodos, isCompletedTodos, isAllTodoCompleted, hasTodo } =
+    useMemo(
+      () => ({
+        activeTodos: todoData.filter(todo => !todo.completed).length,
 
-      isCompletedTodos: todoData.some(todo => todo.completed),
+        isCompletedTodos: todoData.some(todo => todo.completed),
 
-      isAllTodoCompleted:
-        todoData.length > 0 && todoData.every(todo => todo.completed),
+        isAllTodoCompleted:
+          todoData.length > 0 && todoData.every(todo => todo.completed),
 
-      shouldShowElement: !!todoData.length,
-    }),
-    [todoData],
-  );
+        hasTodo: !!todoData.length,
+      }),
+      [todoData],
+    );
 
   const isLoading = useMemo(() => !!todoInOperation.length, [todoInOperation]);
 
@@ -144,7 +140,25 @@ export const useTodoActions = () => {
       .filter(todo => todo.completed)
       .map(todo => todo.id);
 
-    await Promise.allSettled(completedIds.map(id => deleteTodo(id)));
+    setTodoInOperation(cur => [...cur, ...completedIds]);
+
+    const results = await Promise.allSettled(
+      completedIds.map(id => todosApi.deleteTodo(id)),
+    );
+
+    const hasError = results.some(result => result.status === 'rejected');
+
+    const successIds = completedIds.filter(
+      (_, idx) => results[idx].status === 'fulfilled',
+    );
+
+    if (hasError) {
+      setErrorMessage(ErrorMessages.OnDelete);
+    }
+
+    setTodoInOperation(cur => cur.filter(id => !completedIds.includes(id)));
+
+    setTodoData(cur => cur.filter(todo => !successIds.includes(todo.id)));
   };
 
   const toggleAll = async () => {
@@ -154,12 +168,33 @@ export const useTodoActions = () => {
       .filter(todo => todo.completed !== newStatus)
       .map(todo => todo.id);
 
-    await Promise.allSettled(idsToUpdate.map(id => toggleTodo(id, newStatus)));
+    setTodoInOperation(cur => [...cur, ...idsToUpdate]);
+
+    const results = await Promise.allSettled(
+      idsToUpdate.map(id => todosApi.patchTodo(id, { completed: newStatus })),
+    );
+
+    const hasError = results.some(result => result.status === 'rejected');
+
+    const successIds = results
+      .filter(result => result.status === 'fulfilled')
+      .map(item => item.value.id);
+
+    if (hasError) {
+      setErrorMessage(ErrorMessages.OnPatch);
+    }
+
+    setTodoInOperation(cur => cur.filter(id => !idsToUpdate.includes(id)));
+
+    setTodoData(cur =>
+      cur.map(todo =>
+        successIds.includes(todo.id) ? { ...todo, completed: newStatus } : todo,
+      ),
+    );
   };
 
   return {
     isAllTodoCompleted,
-    shouldShowElement,
     isCompletedTodos,
     todoInOperation,
     errorMessage,
@@ -167,6 +202,7 @@ export const useTodoActions = () => {
     isLoading,
     tempTodo,
     todoData,
+    hasTodo,
     setErrorMessage,
     deleteCompleted,
     handleUpdate,

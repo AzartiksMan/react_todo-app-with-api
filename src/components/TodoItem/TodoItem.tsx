@@ -50,7 +50,7 @@ export const TodoItem: React.FC<Props> = ({
 
   const handleKeyUp = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
-      setIsTodoEditing?.(false);
+      setIsTodoEditing(false);
       setEditingTitle(title);
     }
   };

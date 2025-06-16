@@ -3,16 +3,16 @@ import cn from 'classnames';
 
 interface Props {
   isAllTodoCompleted: boolean;
-  shouldShowElement: boolean;
   isLoading: boolean;
+  hasTodo: boolean;
   toggleAll: () => void;
   addTodo: (title: string) => Promise<boolean>;
 }
 
 export const AppHeader: React.FC<Props> = ({
   isAllTodoCompleted,
-  shouldShowElement,
   isLoading,
+  hasTodo,
   toggleAll,
   addTodo,
 }) => {
@@ -35,7 +35,7 @@ export const AppHeader: React.FC<Props> = ({
 
   return (
     <header className="todoapp__header">
-      {shouldShowElement && (
+      {hasTodo && (
         <button
           type="button"
           data-cy="ToggleAllButton"

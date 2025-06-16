@@ -15,7 +15,6 @@ import { ErrorNotification } from './components/ErrorNotification';
 export const App: React.FC = () => {
   const {
     isAllTodoCompleted,
-    shouldShowElement,
     isCompletedTodos,
     todoInOperation,
     errorMessage,
@@ -23,6 +22,7 @@ export const App: React.FC = () => {
     isLoading,
     tempTodo,
     todoData,
+    hasTodo,
     setErrorMessage,
     deleteCompleted,
     handleUpdate,
@@ -47,8 +47,8 @@ export const App: React.FC = () => {
       <div className="todoapp__content">
         <AppHeader
           isAllTodoCompleted={isAllTodoCompleted}
-          shouldShowElement={shouldShowElement}
           isLoading={isLoading}
+          hasTodo={hasTodo}
           toggleAll={toggleAll}
           addTodo={addTodo}
         />
@@ -79,7 +79,7 @@ export const App: React.FC = () => {
           </TransitionGroup>
         </section>
 
-        {shouldShowElement && (
+        {hasTodo && (
           <AppFooter
             isCompletedTodos={isCompletedTodos}
             filter={filter}

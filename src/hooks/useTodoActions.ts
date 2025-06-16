@@ -144,25 +144,7 @@ export const useTodoActions = () => {
       .filter(todo => todo.completed)
       .map(todo => todo.id);
 
-    setTodoInOperation(cur => [...cur, ...completedIds]);
-
-    const results = await Promise.allSettled(
-      completedIds.map(id => todosApi.deleteTodo(id)),
-    );
-
-    const hasError = results.some(result => result.status === 'rejected');
-
-    const successIds = completedIds.filter(
-      (_, idx) => results[idx].status === 'fulfilled',
-    );
-
-    if (hasError) {
-      setErrorMessage(ErrorMessages.OnDelete);
-    }
-
-    setTodoInOperation(cur => cur.filter(id => !completedIds.includes(id)));
-
-    setTodoData(cur => cur.filter(todo => !successIds.includes(todo.id)));
+    await Promise.allSettled(completedIds.map(id => deleteTodo(id)));
   };
 
   const toggleAll = async () => {
@@ -172,29 +154,7 @@ export const useTodoActions = () => {
       .filter(todo => todo.completed !== newStatus)
       .map(todo => todo.id);
 
-    setTodoInOperation(cur => [...cur, ...idsToUpdate]);
-
-    const results = await Promise.allSettled(
-      idsToUpdate.map(id => todosApi.patchTodo(id, { completed: newStatus })),
-    );
-
-    const hasError = results.some(result => result.status === 'rejected');
-
-    const successIds = results
-      .filter(result => result.status === 'fulfilled')
-      .map(item => item.value.id);
-
-    if (hasError) {
-      setErrorMessage(ErrorMessages.OnPatch);
-    }
-
-    setTodoInOperation(cur => cur.filter(id => !idsToUpdate.includes(id)));
-
-    setTodoData(cur =>
-      cur.map(todo =>
-        successIds.includes(todo.id) ? { ...todo, completed: newStatus } : todo,
-      ),
-    );
+    await Promise.allSettled(idsToUpdate.map(id => toggleTodo(id, newStatus)));
   };
 
   return {
